@@ -1,0 +1,26 @@
+﻿
+
+StatusCode        : 200
+StatusDescription : OK
+Content           : {"status":"ok","totalResults":37,"articles":[{"source":{"id":null,"name":"ATP 
+                    Tour"},"author":null,"title":"Sinner suffers fall, trails Dimitrov by two sets at 
+                    Wimbledon - ATP Tour","description":"Jan...
+RawContent        : HTTP/1.1 200 OK
+                    Connection: keep-alive
+                    CF-RAY: 95c206cb4b14709a-MAN
+                    Pragma: no-cache
+                    X-Cached-Result: true
+                    X-Cache-Remaining: 97
+                    X-Cache-Expires: Tue, 08 Jul 2025 19:38:03 GMT
+                    cf-cache-status: ...
+Forms             : {}
+Headers           : {[Connection, keep-alive], [CF-RAY, 95c206cb4b14709a-MAN], [Pragma, no-cache], 
+                    [X-Cached-Result, true]...}
+Images            : {}
+InputFields       : {}
+Links             : {}
+ParsedHtml        : System.__ComObject
+RawContentLength  : 1411
+
+
+
