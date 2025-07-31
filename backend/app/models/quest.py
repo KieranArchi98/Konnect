@@ -10,5 +10,6 @@ class Quest(BaseModel):
     status: str
     progress: float = 0.0
     user_id: str
+    category: str
     date_accepted: Optional[str] = None
     date_completed: Optional[str] = None
