@@ -4,3 +4,27 @@ __pycache__/
 dist/
 build/
 venv/
+
+# Environment files with secrets
+.env
+backend/.env
+frontend/.env
+
+# OAuth credentials
+client_secret.json
+*.json
+
+# Database files
+*.db
+*.sqlite
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
