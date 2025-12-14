@@ -245,7 +245,7 @@ function Sidebar() {
                           letterSpacing: '0.1em'
                         }}
                       >
-                        ELO: {user.elo || 1000}
+                        ELO: {user.elo || 0}
                       </Typography>
                       <Box sx={{ 
                         display: 'flex', 
@@ -426,7 +426,7 @@ function Sidebar() {
                       letterSpacing: '0.1em'
                     }}
                   >
-                    ELO: {user.elo || 1000}
+                    ELO: {user.elo || 0}
                   </Typography>
                   <Box sx={{ 
                     display: 'flex', 

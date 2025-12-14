@@ -4,8 +4,10 @@ import {
   Card,
   CardContent,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup
+  Button,
+  Menu,
+  MenuItem,
+  IconButton
 } from '@mui/material';
 import {
   BarChart,
@@ -25,9 +27,11 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
+import { Tune } from '@mui/icons-material';
 
 const ProfileCharts = () => {
   const [chartType, setChartType] = useState('productivity');
+  const [anchorEl, setAnchorEl] = useState(null);
 
   // Mock data for charts (will be replaced with real data later)
   const mockData = [
@@ -46,80 +50,122 @@ const ProfileCharts = () => {
     { name: 'Learning', value: 17.5, fill: '#6ba336' }
   ];
 
-  const handleChartChange = (event, newChartType) => {
-    if (newChartType !== null) {
-      setChartType(newChartType);
-    }
+  const handleFilterClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleFilterClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleChartChange = (newChartType) => {
+    setChartType(newChartType);
+    handleFilterClose();
   };
 
   const renderChart = () => {
-    switch (chartType) {
-      case 'productivity':
-        return (
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={mockData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 11 }}
-                tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { weekday: 'short' })}
-              />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Bar dataKey="tasksCompleted" fill="#83c441" />
-              <Bar dataKey="questsCompleted" fill="#9ed558" />
-            </BarChart>
-          </ResponsiveContainer>
-        );
+    try {
+      switch (chartType) {
+        case 'productivity':
+          return (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={mockData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => {
+                    try {
+                      return new Date(value).toLocaleDateString('en-US', { weekday: 'short' });
+                    } catch (error) {
+                      return value;
+                    }
+                  }}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Bar dataKey="tasksCompleted" fill="#83c441" />
+                <Bar dataKey="questsCompleted" fill="#9ed558" />
+              </BarChart>
+            </ResponsiveContainer>
+          );
 
-      case 'learning':
-        return (
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={mockData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 11 }}
-                tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { weekday: 'short' })}
-              />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Area type="monotone" dataKey="hoursLearned" stroke="#83c441" fill="#83c441" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
-        );
+        case 'learning':
+          return (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={mockData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => {
+                    try {
+                      return new Date(value).toLocaleDateString('en-US', { weekday: 'short' });
+                    } catch (error) {
+                      return value;
+                    }
+                  }}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Area type="monotone" dataKey="hoursLearned" stroke="#83c441" fill="#83c441" fillOpacity={0.3} />
+              </AreaChart>
+            </ResponsiveContainer>
+          );
 
-      case 'activity':
-        return (
-          <ResponsiveContainer width="100%" height={180}>
-            <RadarChart data={activityData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <PolarRadiusAxis tick={{ fontSize: 11 }} />
-              <Radar name="Activity" dataKey="value" stroke="#83c441" fill="#83c441" fillOpacity={0.3} />
-            </RadarChart>
-          </ResponsiveContainer>
-        );
+        case 'activity':
+          return (
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={activityData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
+                <PolarGrid />
+                <PolarAngleAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <PolarRadiusAxis tick={{ fontSize: 11 }} />
+                <Radar name="Activity" dataKey="value" stroke="#83c441" fill="#83c441" fillOpacity={0.3} />
+              </RadarChart>
+            </ResponsiveContainer>
+          );
 
-      case 'progress':
-        return (
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={mockData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 11 }}
-                tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { weekday: 'short' })}
-              />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Line type="monotone" dataKey="eloEarned" stroke="#83c441" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        );
+        case 'progress':
+          return (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={mockData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => {
+                    try {
+                      return new Date(value).toLocaleDateString('en-US', { weekday: 'short' });
+                    } catch (error) {
+                      return value;
+                    }
+                  }}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="eloEarned" stroke="#83c441" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          );
 
-      default:
-        return null;
+        default:
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 280 }}>
+              <Typography variant="body2" color="text.secondary">
+                Chart not available
+              </Typography>
+            </Box>
+          );
+      }
+    } catch (error) {
+      console.error('[ProfileCharts] Error rendering chart:', error);
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 280 }}>
+          <Typography variant="body2" color="text.secondary">
+            Chart loading error
+          </Typography>
+        </Box>
+      );
     }
   };
 
@@ -148,34 +194,38 @@ const ProfileCharts = () => {
             {getChartTitle()}
           </Typography>
           
-          <ToggleButtonGroup
-            value={chartType}
-            exclusive
-            onChange={handleChartChange}
-            size="small"
+          <IconButton
+            onClick={handleFilterClick}
             sx={{
-              '& .MuiToggleButton-root': {
-                fontSize: '0.75rem',
-                px: 1.5,
-                py: 0.5,
-                borderColor: '#E5E7EB',
-                color: '#5A6570',
-                '&.Mui-selected': {
-                  backgroundColor: '#83c441',
-                  color: 'white',
-                  borderColor: '#83c441',
-                  '&:hover': {
-                    backgroundColor: '#6ba336'
-                  }
-                }
+              border: '1px solid #E5E7EB',
+              color: '#5A6570',
+              '&:hover': {
+                backgroundColor: '#F3F4F6',
+                borderColor: '#D1D5DB'
               }
             }}
           >
-            <ToggleButton value="productivity">Productivity</ToggleButton>
-            <ToggleButton value="learning">Learning</ToggleButton>
-            <ToggleButton value="activity">Activity</ToggleButton>
-            <ToggleButton value="progress">Progress</ToggleButton>
-          </ToggleButtonGroup>
+            <Tune />
+          </IconButton>
+          
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleFilterClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+          >
+            <MenuItem onClick={() => handleChartChange('productivity')}>Productivity</MenuItem>
+            <MenuItem onClick={() => handleChartChange('learning')}>Learning</MenuItem>
+            <MenuItem onClick={() => handleChartChange('activity')}>Activity</MenuItem>
+            <MenuItem onClick={() => handleChartChange('progress')}>Progress</MenuItem>
+          </Menu>
         </Box>
 
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>

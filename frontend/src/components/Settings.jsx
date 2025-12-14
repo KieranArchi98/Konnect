@@ -302,7 +302,7 @@ function Settings() {
                     letterSpacing: '-0.02em'
                   }}
                 >
-                  Query Agent Setup
+                  Query Agent
                 </Typography>
               </Box>
               
@@ -494,7 +494,7 @@ function Settings() {
                     letterSpacing: '-0.02em'
                   }}
                 >
-                  Gmail Integration
+                  Email Agent
                 </Typography>
               </Box>
               

@@ -398,6 +398,21 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('pending_verification_display_name');
   };
 
+  const refreshUser = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        const userData = await getCurrentUser(token);
+        if (userData) {
+          setUser(userData);
+          console.log('[AuthContext] User data refreshed:', userData);
+        }
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error refreshing user data:', error);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -410,7 +425,8 @@ export const AuthProvider = ({ children }) => {
     getTestUser,
     verifyEmail,
     resendVerification,
-    clearPendingVerification
+    clearPendingVerification,
+    refreshUser
   };
 
   return (

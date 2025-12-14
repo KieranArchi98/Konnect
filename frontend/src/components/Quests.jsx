@@ -47,7 +47,7 @@ function Quests() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -85,8 +85,19 @@ function Quests() {
       setFetchError(null);
       console.log('Fetching all quests...');
       
+      // Clear cache before fetching to ensure fresh data
+      cacheUtils.remove(CACHE_KEYS.AVAILABLE_QUESTS);
+      cacheUtils.remove(CACHE_KEYS.IN_PROGRESS_QUESTS);
+      cacheUtils.remove(CACHE_KEYS.COMPLETED_QUESTS);
+      
       const res = await axios.get(`${backendUrl}/quests/all`, { headers: getAuthHeaders() });
       console.log('Quest data received:', res.data);
+      console.log('Available quests count:', res.data.available?.length || 0);
+      console.log('Available quests:', res.data.available);
+      console.log('In progress quests count:', res.data.in_progress?.length || 0);
+      console.log('In progress quests:', res.data.in_progress);
+      console.log('Completed quests count:', res.data.completed?.length || 0);
+      console.log('Completed quests:', res.data.completed);
       
       const available = res.data.available || [];
       const inProgress = res.data.in_progress || [];
@@ -97,12 +108,37 @@ function Quests() {
       setInProgressQuests(inProgress);
       setCompletedQuests(completed);
       
-      // Cache the data
+      // Cache the fresh data
       cacheUtils.set(CACHE_KEYS.AVAILABLE_QUESTS, available);
       cacheUtils.set(CACHE_KEYS.IN_PROGRESS_QUESTS, inProgress);
       cacheUtils.set(CACHE_KEYS.COMPLETED_QUESTS, completed);
       
       console.log(`Loaded: ${available.length} available, ${inProgress.length} in-progress, ${completed.length} completed quests`);
+      
+      // If no available quests, try to force a reset to generate new quests
+      if (available.length === 0) {
+        console.log('No available quests found - attempting to force quest generation...');
+        try {
+          // Force a reset to generate new quests
+          await axios.post(`${backendUrl}/quests/reset`, {}, { headers: getAuthHeaders() });
+          console.log('Forced quest reset completed');
+          
+          // Fetch again after reset
+          const newRes = await axios.get(`${backendUrl}/quests/all`, { headers: getAuthHeaders() });
+          const newAvailable = newRes.data.available || [];
+          console.log('After reset - available quests:', newAvailable);
+          
+          if (newAvailable.length > 0) {
+            setAvailableQuests(newAvailable);
+            cacheUtils.set(CACHE_KEYS.AVAILABLE_QUESTS, newAvailable);
+            console.log(`Successfully generated ${newAvailable.length} quests`);
+          } else {
+            console.error('Still no quests after reset - backend issue');
+          }
+        } catch (generateErr) {
+          console.error('Failed to generate quests:', generateErr);
+        }
+      }
     } catch (err) {
       console.error('Error fetching quests:', err);
       setFetchError('Failed to load quests. Please try refreshing.');
@@ -206,25 +242,41 @@ function Quests() {
   useEffect(() => {
     if (!user) return;
     
-    console.log('Quests component mounted, loading cached data...');
+    console.log('Quests component mounted, checking for daily reset...');
     
-    // Load cached data immediately
-    const cachedData = loadCachedData();
-    
-    // Fetch fresh data in background if cache is stale or empty
-    const shouldFetchFresh = !cacheUtils.has(CACHE_KEYS.AVAILABLE_QUESTS) || 
-                           cacheUtils.getAge(CACHE_KEYS.AVAILABLE_QUESTS) > 60000; // 1 minute
-    
-    if (shouldFetchFresh) {
-      console.log('Cache is stale or empty, fetching fresh data...');
-      fetchWithRetry(() => fetchAllQuests(false));
-    } else {
-      console.log('Using cached data, will refresh in background...');
-      // Fetch fresh data in background without showing loading
-      setTimeout(() => {
+    // Check if we need to reset quests for a new day
+    const checkAndResetForNewDay = async () => {
+      try {
+        // Check if it's a new day locally first
+        const shouldReset = isNewDay();
+        
+        if (shouldReset) {
+          console.log('New day detected, resetting quests...');
+          // Call the backend reset endpoint to generate new quests
+          const res = await axios.post(`${backendUrl}/quests/reset`, {}, { headers: getAuthHeaders() });
+          console.log('Daily reset completed:', res.data);
+        } else {
+          console.log('Same day, checking for existing quests...');
+        }
+        
+        // Clear cache to ensure fresh data
+        cacheUtils.remove(CACHE_KEYS.AVAILABLE_QUESTS);
+        cacheUtils.remove(CACHE_KEYS.IN_PROGRESS_QUESTS);
+        cacheUtils.remove(CACHE_KEYS.COMPLETED_QUESTS);
+        cacheUtils.remove(CACHE_KEYS.REPORT_STATUS);
+        
+        // Fetch fresh quests
+        await fetchAllQuests(false);
+        
+      } catch (err) {
+        console.error('Error checking for daily reset:', err);
+        // Fallback to normal fetch if reset fails
         fetchAllQuests(false);
-      }, 2000);
-    }
+      }
+    };
+    
+    // Always check for daily reset on component mount
+    checkAndResetForNewDay();
     
     // Fetch report status
     fetchReportStatus();
@@ -254,6 +306,18 @@ function Quests() {
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
+  
+  // Check if it's a new day since last quest reset
+  const isNewDay = () => {
+    const lastResetDate = localStorage.getItem('lastQuestResetDate');
+    const today = dayjs().format('YYYY-MM-DD');
+    
+    if (!lastResetDate || lastResetDate !== today) {
+      localStorage.setItem('lastQuestResetDate', today);
+      return true;
+    }
+    return false;
+  };
   
   useEffect(() => {
     const updateTimer = () => {
@@ -368,7 +432,18 @@ function Quests() {
         cacheUtils.set(CACHE_KEYS.COMPLETED_QUESTS, [{ ...questToComplete, status: 'completed', date_completed: new Date().toISOString().split('T')[0] }, ...completedQuests]);
       }
       
+      // Complete the quest
       const res = await axios.post(`${backendUrl}/quests/complete/${questId}`, {}, { headers: getAuthHeaders() });
+      
+      // Also call the profile service to update ELO
+      try {
+        await axios.post(`${backendUrl}/profile/complete-quest/${questId}`, {}, { headers: getAuthHeaders() });
+        console.log('[Quests] Profile ELO updated successfully');
+        refreshUser(); // Update user ELO display
+      } catch (profileErr) {
+        console.warn('[Quests] Failed to update profile ELO:', profileErr);
+        // Don't fail the quest completion if profile update fails
+      }
       
       // Show ELO reward notification if available
       if (res.data && res.data.elo_reward) {
@@ -403,8 +478,34 @@ function Quests() {
     }
   };
 
-  const handleRefresh = () => {
-    fetchAllQuests(true);
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setError('');
+      
+      // Clear all cache first
+      cacheUtils.remove(CACHE_KEYS.AVAILABLE_QUESTS);
+      cacheUtils.remove(CACHE_KEYS.IN_PROGRESS_QUESTS);
+      cacheUtils.remove(CACHE_KEYS.COMPLETED_QUESTS);
+      cacheUtils.remove(CACHE_KEYS.REPORT_STATUS);
+      
+      // Force a reset to ensure fresh quests
+      try {
+        await axios.post(`${backendUrl}/quests/reset`, {}, { headers: getAuthHeaders() });
+        console.log('Forced quest reset completed');
+      } catch (resetErr) {
+        console.warn('Reset failed, continuing with normal fetch:', resetErr);
+      }
+      
+      // Fetch fresh data
+      await fetchAllQuests(false);
+      
+    } catch (err) {
+      console.error('Error during refresh:', err);
+      setError('Failed to refresh quests. Please try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Common card styling for consistent appearance

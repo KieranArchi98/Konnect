@@ -14,7 +14,6 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import OAuthCallback from './components/OAuthCallback.jsx';
 import EmailVerification from './pages/EmailVerification.jsx';
-import BackendTest from './components/BackendTest.jsx';
 import { CssBaseline, Box, ThemeProvider, createTheme } from '@mui/material';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -312,7 +311,6 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/verify-email" element={<EmailVerification />} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
-          <Route path="/backend-test" element={<BackendTest />} />
           
           {/* Protected routes */}
           <Route path="/*" element={

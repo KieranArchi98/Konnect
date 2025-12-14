@@ -4,9 +4,9 @@ from app.utils.config import settings
 from pinecone import Pinecone as PineconeClient
 from app.utils.config import supabase
 from app.utils.agent_constants import (
-    EMAIL_AGENT_ID, QUEST_AGENT_ID, QUERY_AGENT_ID, IDEAS_AGENT_ID,
-    EMAIL_AGENT_NAME, QUEST_AGENT_NAME, QUERY_AGENT_NAME, IDEAS_AGENT_NAME,
-    is_email_agent, is_quest_agent, is_query_agent, is_ideas_agent
+    EMAIL_AGENT_ID, QUEST_AGENT_ID, QUERY_AGENT_ID, IDEAS_AGENT_ID, QUOTE_AGENT_ID,
+    EMAIL_AGENT_NAME, QUEST_AGENT_NAME, QUERY_AGENT_NAME, IDEAS_AGENT_NAME, QUOTE_AGENT_NAME,
+    is_email_agent, is_quest_agent, is_query_agent, is_ideas_agent, is_quote_agent
 )
 from app.services.gmail_service import send_gmail_message
 import re
@@ -172,8 +172,8 @@ async def assign_agent_task(details: dict, user_id: str = None) -> dict:
                 # Fallback to parsing from user input
                 print(f"[EMAIL AGENT] Parsing from user input: {user_input}")
             email, content = extract_email_and_content(user_input)
-                subject = ""
-                tone_level = details.get("tone_level", 3)
+            subject = ""
+            tone_level = details.get("tone_level", 3)
             
             print(f"[EMAIL AGENT] Final values - email: {email}, content: {content}")
             if not email or not content:
@@ -239,7 +239,7 @@ async def assign_agent_task(details: dict, user_id: str = None) -> dict:
             
             # Generate email subject if not provided
             if not subject:
-            subject = generate_email_subject(content, tone_level)
+                subject = generate_email_subject(content, tone_level)
             
             print(f"[EMAIL AGENT] Step 3: Created preview email with tone level {tone_level}: {preview}")
             print(f"[EMAIL AGENT] Generated subject: {subject}")
@@ -398,6 +398,40 @@ Return a JSON object with: title, description, elo_reward (10-50), difficulty (e
                 print(f"[IDEAS AGENT] Error generating ideas: {e}")
                 return {"status": "failed", "error": f"Failed to generate ideas: {str(e)}"}
         
+        # Quote Agent (ID: 5)
+        elif is_quote_agent(agent_id) or details.get("agent_name") == QUOTE_AGENT_NAME:
+            print(f"[QUOTE AGENT] Branch taken for agent_id={agent_id}")
+            try:
+                # Generate quote using OpenAI
+                quote_type = details.get("form_fields", {}).get("quote_type", "motivation")
+                quote_result = await generate_inspirational_quote(quote_type)
+                
+                # Create agent task record
+                response = supabase.table("agent_tasks").insert({
+                    "status": "Assigned",
+                    "agent_id": agent_id,
+                    "user_id": user_id,
+                    "input": user_input,
+                    "output": f"Generated {quote_type} quote",
+                    "error": None
+                }).execute()
+                
+                data = getattr(response, 'data', None)
+                task_id = data[0].get("id") if data and isinstance(data, list) and data else None
+                agent_name = get_agent_name(agent_id)
+                
+                return {
+                    "task_id": task_id, 
+                    "status": "Assigned", 
+                    "agent_name": agent_name,
+                    "quote": quote_result,
+                    "message": f"Generated {quote_type} quote"
+                }
+                
+            except Exception as e:
+                print(f"[QUOTE AGENT] Error generating quote: {e}")
+                return {"status": "failed", "error": f"Failed to generate quote: {str(e)}"}
+        
         # Fallback for other agents: store in agent_tasks
         print(f"[AGENT] Fallback branch taken for agent_id={agent_id}")
         if not isinstance(details, dict):
@@ -485,11 +519,19 @@ async def regenerate_email_with_tone(user_input: str, tone_level: int) -> dict:
         return {"status": "failed", "error": str(e)}
 
 # New function to send the email after confirmation
-def send_email_agent(email: str, content: str, agent_id: int, user_input: str, task_id: int = None, user_id: str = None) -> dict:
+def send_email_agent(email: str, content: str, agent_id: int, user_input: str, task_id: int = None, user_id: str = None, subject: str = None) -> dict:
     print(f"[EMAIL AGENT] Sending confirmed email to {email} with content: {content}")
-    subject = "[Productivity App] New Email"
+    
+    # Use provided subject or generate one based on content
+    if subject and subject.strip():
+        email_subject = subject.strip()
+    else:
+        email_subject = generate_email_subject(content)
+    
+    print(f"[EMAIL AGENT] Using subject: {email_subject}")
+    
     try:
-        gmail_result = send_gmail_message(email, subject, content)
+        gmail_result = send_gmail_message(email, email_subject, content)
         print(f"[EMAIL AGENT] Gmail API result: {gmail_result}")
     except Exception as e:
         print(f"[EMAIL AGENT] Exception sending email: {e}")
@@ -588,7 +630,7 @@ async def generate_inspirational_quote(quote_type: str = "motivation") -> dict:
                     quote_data = json.loads(json_match.group())
                     quote = quote_data.get('quote', '')
                     author = quote_data.get('author', 'Unknown')
-        except json.JSONDecodeError:
+                except json.JSONDecodeError:
                     pass
             
             # If still no success, try to extract quote and author manually
@@ -622,11 +664,11 @@ async def generate_inspirational_quote(quote_type: str = "motivation") -> dict:
         if not quote or quote == "":
             print("[QUOTE AGENT] Could not extract quote from response")
             # Return a fallback quote based on type
-        fallback_quotes = {
-            "motivation": {"quote": "The only way to do great work is to love what you do.", "author": "Steve Jobs"},
+            fallback_quotes = {
+                "motivation": {"quote": "The only way to do great work is to love what you do.", "author": "Steve Jobs"},
                 "success": {"quote": "Success is not final, failure is not fatal: it is the courage to continue that counts.", "author": "Winston Churchill"},
-            "leadership": {"quote": "The greatest leader is not necessarily the one who does the greatest things. He is the one that gets the people to do the greatest things.", "author": "Ronald Reagan"},
-            "creativity": {"quote": "Creativity is intelligence having fun.", "author": "Albert Einstein"},
+                "leadership": {"quote": "The greatest leader is not necessarily the one who does the greatest things. He is the one that gets the people to do the greatest things.", "author": "Ronald Reagan"},
+                "creativity": {"quote": "Creativity is intelligence having fun.", "author": "Albert Einstein"},
                 "wisdom": {"quote": "The unexamined life is not worth living.", "author": "Socrates"},
                 "courage": {"quote": "Courage is not the absence of fear, but the triumph over it.", "author": "Nelson Mandela"},
                 "love": {"quote": "The best thing to hold onto in life is each other.", "author": "Audrey Hepburn"},

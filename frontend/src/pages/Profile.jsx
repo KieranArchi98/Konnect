@@ -2,136 +2,112 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
+  Grid, 
   Card,
   CardContent,
-  Grid,
   Avatar,
   Badge,
   LinearProgress,
-  CircularProgress,
+  Chip, 
+  IconButton, 
+  Alert,
   List,
   ListItem,
   ListItemIcon,
-  ListItemText,
-  Tooltip,
-  Fade,
-  Zoom,
-  Chip,
-  Divider,
-  Alert,
-  IconButton
+  ListItemText
 } from '@mui/material';
 import {
-  TrendingUp,
-  EmojiEvents,
-  LocalFireDepartment,
-  Psychology,
-  AutoAwesome,
-  Timeline,
-  Star,
-  Bolt,
-  School,
-  Work,
-  Person,
-  CheckCircle,
-  PlayArrow,
-  Pause,
-  Stop,
+  Person as PersonIcon,
+  EmojiEvents as EmojiEvents,
   Refresh as RefreshIcon,
-  Person as PersonIcon
+  LocalFireDepartment,
+  Explore,
+  Group,
+  Timeline,
+  Star
 } from '@mui/icons-material';
-import { gsap } from 'gsap';
-import profileService from '../services/profileService';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/AuthContext';
 import ProfileCharts from '../components/ProfileCharts';
+import gsap from 'gsap';
 
 const Profile = () => {
-  const [profileData, setProfileData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { user, refreshUser } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
   const profileRef = useRef();
-  const { user } = useAuth();
 
-  useEffect(() => {
-    fetchProfileData();
-  }, []);
-
-  useEffect(() => {
-    gsap.fromTo(
-      profileRef.current,
-      { y: 40, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.8, ease: 'power2.out' }
-    );
-  }, []);
-
-  const fetchProfileData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await profileService.getProfile();
-      
-      if (response.success) {
-        setProfileData(response.data);
-      } else {
-        setError('Failed to load profile data');
-      }
-    } catch (err) {
-      console.error('Error fetching profile data:', err);
-      setError('Failed to load profile data');
-    } finally {
-      setLoading(false);
-    }
+  // Use user data from AuthContext (same as Sidebar)
+  const userData = user ? {
+    id: user.id,
+    email: user.email,
+    display_name: user.display_name || user.email?.split('@')[0] || 'User',
+    elo: user.elo || 0,
+    level: user.level || 1,
+    experience: (user.elo || 0) % 100,
+    experience_to_next_level: 100
+  } : {
+    id: 'unknown',
+    email: 'unknown@example.com',
+    display_name: 'User',
+    elo: 0,
+    level: 1,
+    experience: 0,
+    experience_to_next_level: 100
   };
+
+  // Dummy data for other components (keeping the same structure)
+  const current_streak = 5;
+  const longest_streak = 12;
+  const active_quests = 3;
+  
+  const experiencePercentage = Math.min(100, Math.max(0, (userData.experience / userData.experience_to_next_level) * 100));
+  
+  console.log('[Profile] Rendered with data:', {
+    user: userData,
+    current_streak,
+    longest_streak,
+    active_quests
+  });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchProfileData();
+    try {
+      // Refresh user data from AuthContext
+      await refreshUser();
+      console.log('[Profile] User data refreshed successfully');
+    } catch (err) {
+      console.error('[Profile] Refresh error:', err);
+      setError('Failed to refresh profile data');
+    } finally {
     setIsRefreshing(false);
-  };
-
-  const getLevelColor = (level) => {
-    if (level >= 8) return '#FFD700'; // Gold
-    if (level >= 6) return '#C0C0C0'; // Silver
-    if (level >= 4) return '#CD7F32'; // Bronze
-    return '#5A6570'; // Default
-  };
-
-  const getDifficultyColor = (difficulty) => {
-    switch (difficulty) {
-      case 'easy': return '#4CAF50';
-      case 'normal': return '#FF9800';
-      case 'hard': return '#F44336';
-      default: return '#5A6570';
     }
   };
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={60} sx={{ color: '#5A6570' }} />
-      </Box>
-    );
-  }
+  const getLevelColor = (level) => {
+    if (level >= 10) return '#FFD700'; // Gold
+    if (level >= 7) return '#C0C0C0';  // Silver
+    if (level >= 4) return '#CD7F32';  // Bronze
+    return '#83c441'; // Green
+  };
 
-  if (error) {
-    return (
-      <Box p={3}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
-  }
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty?.toLowerCase()) {
+      case 'easy': return '#4CAF50';
+      case 'medium': return '#FF9800';
+      case 'hard': return '#F44336';
+      default: return '#9E9E9E';
+    }
+  };
 
-  if (!profileData) {
-    return (
-      <Box p={3}>
-        <Alert severity="info">No profile data available</Alert>
-      </Box>
-    );
-  }
-
-  const { user: userData, agent_stats, weekly_stats, achievements, story_progress } = profileData;
-  const experiencePercentage = (userData.experience / userData.experience_to_next_level) * 100;
+  useEffect(() => {
+    if (profileRef.current) {
+      gsap.fromTo(
+        profileRef.current,
+        { y: 40, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8, ease: 'power2.out' }
+      );
+    }
+  }, [userData]);
 
   return (
     <Box ref={profileRef} sx={{ 
@@ -200,10 +176,16 @@ const Profile = () => {
         </Box>
       </Box>
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
+          {error}
+        </Alert>
+      )}
+
       {/* Profile Header Card and Charts Row */}
       <Grid container spacing={4} sx={{ mb: 4 }}>
         {/* Left Column - Profile Card and Story Progression */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={5} sx={{ order: { xs: 1, md: 1 } }}>
           <Grid container spacing={3}>
             {/* Profile Card - Takes half the vertical space */}
             <Grid item xs={12}>
@@ -254,7 +236,7 @@ const Profile = () => {
                     
                     <Grid item xs>
                       <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 0.5, letterSpacing: '0.5px' }}>
-                        {userData.display_name || 'User'}
+                        {userData.display_name}
                       </Typography>
                       <Typography variant="body1" sx={{ color: '#5A6570', mb: 1, fontWeight: 500 }}>
                         Level {userData.level} • {userData.elo} ELO
@@ -274,25 +256,23 @@ const Profile = () => {
                           variant="determinate"
                           value={experiencePercentage}
                           sx={{
-                            height: 6,
-                            borderRadius: 3,
-                            backgroundColor: 'rgba(90, 101, 112, 0.2)',
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: 'rgba(0,0,0,0.1)',
                             '& .MuiLinearProgress-bar': {
-                              background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
-                              borderRadius: 3
+                              background: 'linear-gradient(90deg, #83c441, #6ba336)',
+                              borderRadius: 4
                             }
                           }}
                         />
                       </Box>
                     </Grid>
-                    
-
                   </Grid>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Story Progression - Below Profile Card on medium+ screens */}
+            {/* Story Progression Card */}
             <Grid item xs={12}>
               <Card sx={{ 
                 borderRadius: '12px',
@@ -302,25 +282,25 @@ const Profile = () => {
                 backdropFilter: 'blur(10px)'
               }}>
                 <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Box sx={{ 
                       backgroundColor: '#FFD700',
                       borderRadius: '50%',
-                      width: 40,
-                      height: 40,
+                      width: 48,
+                      height: 48,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       mr: 2
                     }}>
-                      <AutoAwesome sx={{ color: 'white', fontSize: 20 }} />
+                      <Explore sx={{ color: 'white', fontSize: 24 }} />
                     </Box>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#2A2A2A' }}>
                         Story Progression
                       </Typography>
                       <Typography variant="body2" sx={{ color: '#666' }}>
-                        Chapter {story_progress.current_chapter} of {story_progress.total_chapters}
+                        Your journey continues
                       </Typography>
                     </Box>
                   </Box>
@@ -331,12 +311,12 @@ const Profile = () => {
                         Progress
                       </Typography>
                       <Typography variant="body2" sx={{ color: '#666' }}>
-                        {Math.round((story_progress.completed_chapters / story_progress.total_chapters) * 100)}%
+                        20%
                       </Typography>
                     </Box>
                     <LinearProgress
                       variant="determinate"
-                      value={(story_progress.completed_chapters / story_progress.total_chapters) * 100}
+                      value={20}
                       sx={{
                         height: 6,
                         borderRadius: 3,
@@ -350,7 +330,7 @@ const Profile = () => {
                   </Box>
                   
                   <Typography variant="body2" sx={{ color: '#666' }}>
-                    Story Points: {story_progress.story_points}
+                    Chapter 3: Air
                   </Typography>
                 </CardContent>
               </Card>
@@ -359,11 +339,9 @@ const Profile = () => {
         </Grid>
 
         {/* Right Column - Charts */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={7} sx={{ order: { xs: 5, md: 2 } }}>
           <Box sx={{ 
-            display: { xs: 'none', md: 'block' },
-            height: '100%',
-            mt: { md: 6 }
+            height: '100%'
           }}>
             <ProfileCharts />
           </Box>
@@ -373,7 +351,7 @@ const Profile = () => {
       {/* Stats Grid */}
       <Grid container spacing={3}>
         {/* Left Column */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={7} sx={{ order: { xs: 2, md: 1 } }}>
           <Grid container spacing={3}>
             {/* Daily Streak */}
             <Grid item xs={12} sm={6}>
@@ -385,8 +363,8 @@ const Profile = () => {
                 background: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)'
               }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Box sx={{ 
                       backgroundColor: '#FF6B35',
                       borderRadius: '50%',
@@ -404,21 +382,72 @@ const Profile = () => {
                         Daily Streak
                       </Typography>
                       <Typography variant="body2" sx={{ color: '#666' }}>
-                        Consecutive days
+                        Current & Longest
                       </Typography>
                     </Box>
                   </Box>
-                  <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#FF6B35', mb: 1 }}>
-                    {profileData.current_streak}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-end', 
+                    flex: 1,
+                    px: { xs: 0.5, sm: 1, md: 2 },
+                    gap: { xs: 0.5, sm: 1, md: 2 }
+                  }}>
+                    <Box sx={{ flex: 1, textAlign: 'center' }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          color: '#FF6B35', 
+                          mb: 0.5,
+                          fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                        }}
+                      >
+                    {current_streak}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#666' }}>
-                    Longest: {profileData.longest_streak} days
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: '#666', 
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                        }}
+                      >
+                        Current
                   </Typography>
+                    </Box>
+                    <Box sx={{ 
+                      flex: 1, 
+                      textAlign: 'center',
+                      display: { xs: 'none', lg: 'block' }
+                    }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          color: '#FF9800', 
+                          mb: 0.5,
+                          fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                        }}
+                      >
+                        {longest_streak}
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: '#666', 
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                        }}
+                      >
+                        Longest
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Active Quests */}
+            {/* Quest Component */}
             <Grid item xs={12} sm={6}>
               <Card sx={{ 
                 borderRadius: '12px',
@@ -428,8 +457,8 @@ const Profile = () => {
                 background: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)'
               }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Box sx={{ 
                       backgroundColor: '#4CAF50',
                       borderRadius: '50%',
@@ -440,23 +469,100 @@ const Profile = () => {
                       justifyContent: 'center',
                       mr: 2
                     }}>
-                      <EmojiEvents sx={{ color: 'white', fontSize: 24 }} />
+                      <Explore sx={{ color: 'white', fontSize: 24 }} />
                     </Box>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#2A2A2A' }}>
-                        Active Quests
+                        Quest
                       </Typography>
                       <Typography variant="body2" sx={{ color: '#666' }}>
-                        In progress
+                        Completed & Abandoned
                       </Typography>
                     </Box>
                   </Box>
-                  <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#4CAF50', mb: 1 }}>
-                    {profileData.active_quests}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-end', 
+                    flex: 1,
+                    px: { xs: 0.5, sm: 1, md: 2 },
+                    gap: { xs: 0.5, sm: 1, md: 2 }
+                  }}>
+                    <Box sx={{ flex: 1, textAlign: 'center' }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          color: '#4CAF50', 
+                          mb: 0.5,
+                          fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                        }}
+                      >
+                        12
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#666' }}>
-                    Ready to complete
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: '#666', 
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                        }}
+                      >
+                        Completed
                   </Typography>
+                    </Box>
+                    <Box sx={{ 
+                      flex: 1, 
+                      textAlign: 'center',
+                      display: { xs: 'none', xl: 'block' }
+                    }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          color: '#F44336', 
+                          mb: 0.5,
+                          fontSize: { xs: '1.25rem', sm: '1.75rem', md: '3rem' }
+                        }}
+                      >
+                        3
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: '#666', 
+                          fontSize: { xs: '0.7rem', sm: '0.875rem' }
+                        }}
+                      >
+                        Abandoned
+                      </Typography>
+                    </Box>
+                    <Box sx={{ 
+                      flex: 1, 
+                      textAlign: 'center',
+                      display: { xs: 'none', xl: 'block' }
+                    }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          color: '#2196F3', 
+                          mb: 0.5,
+                          fontSize: { xs: '1.25rem', sm: '1.75rem', md: '3rem' }
+                        }}
+                      >
+                        4:1
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: '#666', 
+                          fontSize: { xs: '0.7rem', sm: '0.875rem' }
+                        }}
+                      >
+                        Ratio
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
@@ -482,14 +588,14 @@ const Profile = () => {
                       justifyContent: 'center',
                       mr: 2
                     }}>
-                      <Psychology sx={{ color: 'white', fontSize: 24 }} />
+                      <Group sx={{ color: 'white', fontSize: 24 }} />
                     </Box>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#2A2A2A' }}>
                         AI Agent Workforce
                       </Typography>
                       <Typography variant="body2" sx={{ color: '#666' }}>
-                        Your AI team stats
+                        Your AI assistants
                       </Typography>
                     </Box>
                   </Box>
@@ -497,41 +603,93 @@ const Profile = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2196F3' }}>
-                          {agent_stats.total_agents_used}
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#2196F3',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          4
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Total Used
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
+                          Agents
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4CAF50' }}>
-                          {agent_stats.active_agents}
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#4CAF50',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          23
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Active
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#FF9800' }}>
-                          {agent_stats.completed_tasks}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
                           Completed
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#9C27B0' }}>
-                          {Math.round(agent_stats.total_efficiency * 100)}%
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#FF9800',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          30
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Efficiency
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
+                          Assigned
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#9C27B0',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          87%
+                        </Typography>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
+                          Productivity
                         </Typography>
                       </Box>
                     </Grid>
@@ -576,41 +734,93 @@ const Profile = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#4CAF50' }}>
-                          {weekly_stats.quests_completed || 0}
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#4CAF50',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          7
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
                           Quests
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#FF9800' }}>
-                          {weekly_stats.tasks_completed || 0}
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#FF9800',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          15
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
                           Tasks
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#2196F3' }}>
-                          {weekly_stats.hours_learned || 0}h
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#2196F3',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          {userData.elo}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Learning
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
+                          ELO
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#9C27B0' }}>
-                          {weekly_stats.total_points || 0}
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: '#9C27B0',
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' }
+                          }}
+                        >
+                          A
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Points
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }}
+                        >
+                          Grade
                         </Typography>
                       </Box>
                     </Grid>
@@ -622,7 +832,7 @@ const Profile = () => {
         </Grid>
 
         {/* Right Column */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={5} sx={{ order: { xs: 4, md: 2 } }}>
           <Grid container spacing={3}>
             {/* Recent Achievements */}
             <Grid item xs={12}>
@@ -657,30 +867,25 @@ const Profile = () => {
                     </Box>
                   </Box>
                   
-                  {achievements && achievements.length > 0 ? (
                     <List sx={{ p: 0 }}>
-                      {achievements
-                        .filter(achievement => achievement.unlocked)
-                        .slice(0, 5)
-                        .map((achievement, index) => (
-                        <ListItem key={index} sx={{ px: 0, py: 1 }}>
+                    <ListItem sx={{ px: 0, py: 1 }}>
                           <ListItemIcon sx={{ minWidth: 40 }}>
-                            <Box sx={{ fontSize: 24 }}>{achievement.icon}</Box>
+                        <Box sx={{ fontSize: 24 }}>🎯</Box>
                           </ListItemIcon>
                           <ListItemText
                             primary={
                               <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#2A2A2A' }}>
-                                {achievement.name}
+                            Welcome
                               </Typography>
                             }
                             secondary={
                               <Typography variant="caption" sx={{ color: '#666' }}>
-                                {achievement.description}
+                            Join the productivity journey
                               </Typography>
                             }
                           />
                           <Chip
-                            label={`+${achievement.reward_points}`}
+                        label="+50"
                             size="small"
                             sx={{
                               backgroundColor: '#E91E63',
@@ -690,24 +895,67 @@ const Profile = () => {
                             }}
                           />
                         </ListItem>
-                      ))}
-                    </List>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#666', textAlign: 'center', py: 2 }}>
-                      No achievements unlocked yet
+                    <ListItem sx={{ px: 0, py: 1 }}>
+                      <ListItemIcon sx={{ minWidth: 40 }}>
+                        <Box sx={{ fontSize: 24 }}>⚡</Box>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#2A2A2A' }}>
+                            Getting Started
                     </Typography>
-                  )}
+                        }
+                        secondary={
+                          <Typography variant="caption" sx={{ color: '#666' }}>
+                            Reach level 2
+                          </Typography>
+                        }
+                      />
+                      <Chip
+                        label="+100"
+                        size="small"
+                        sx={{
+                          backgroundColor: '#E91E63',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '0.7rem'
+                        }}
+                      />
+                    </ListItem>
+                    <ListItem sx={{ px: 0, py: 1 }}>
+                      <ListItemIcon sx={{ minWidth: 40 }}>
+                        <Box sx={{ fontSize: 24 }}>🤖</Box>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#2A2A2A' }}>
+                            Progress Maker
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="caption" sx={{ color: '#666' }}>
+                            Reach level 3
+                          </Typography>
+                        }
+                      />
+                      <Chip
+                        label="+150"
+                        size="small"
+                        sx={{
+                          backgroundColor: '#E91E63',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '0.7rem'
+                        }}
+                      />
+                    </ListItem>
+                  </List>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
         </Grid>
       </Grid>
-
-      {/* Analytics Charts - Only visible on small screens */}
-      <Box sx={{ mt: 4, display: { xs: 'block', md: 'none' } }}>
-        <ProfileCharts />
-      </Box>
     </Box>
   );
 };

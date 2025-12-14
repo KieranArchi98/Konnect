@@ -1,14 +1,8 @@
-# Start frontend and backend in separate PowerShell windows
-$frontendCommand = 'cd frontend; npm run dev'
-$backendCommand = 'cd backend; .\venv\Scripts\Activate.ps1; python -m uvicorn app.main:app --reload'
+$backendPath  = Join-Path $PSScriptRoot 'backend'
+$frontendPath = Join-Path $PSScriptRoot 'frontend'
 
-Write-Host "Starting Frontend..." -ForegroundColor Green
-Start-Process powershell -ArgumentList '-NoExit', '-Command', $frontendCommand
+# Backend: create venv if missing, install, activate and run uvicorn in a new window
+Start-Process powershell -ArgumentList "-NoExit","-Command","cd '$backendPath'; if (-Not (Test-Path venv)) { python -m venv venv }; .\venv\Scripts\Activate.ps1; pip install -r requirements.txt; uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 
-Write-Host "Starting Backend..." -ForegroundColor Green
-Start-Process powershell -ArgumentList '-NoExit', '-Command', $backendCommand
-
-Write-Host 'Frontend running on http://localhost:5173' -ForegroundColor Yellow
-Write-Host 'Backend running on http://localhost:8000' -ForegroundColor Yellow
-Write-Host 'Press any key to exit this launcher...' -ForegroundColor Cyan
-$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+# Frontend: install deps and run dev server in a new window
+Start-Process powershell -ArgumentList "-NoExit","-Command","cd '$frontendPath'; npm install; npm run dev"

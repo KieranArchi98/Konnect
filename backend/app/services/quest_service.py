@@ -22,7 +22,7 @@ def reset_daily_quests(user_id):
         
         # Remove all available quests for the user
         supabase.table("user_quests").update({"status": "expired"}) \
-            .eq("user_id", user_id).eq("status", "available").execute()
+            .eq("user_id", user_id).eq("status", "active").execute()
         
         # Assign new default quests
         assign_default_quests(user_id)
@@ -41,7 +41,7 @@ def get_available_quests(user_id):
             try:
                 # Fetch 3 most recent available quests for the user
                 response = supabase.table("user_quests").select("*, quests(*)") \
-                    .eq("user_id", user_id).eq("status", "available") \
+                    .eq("user_id", user_id).eq("status", "active") \
                     .order("date_accepted", desc=True).limit(3).execute()
                 data = getattr(response, 'data', None)
                 
@@ -52,7 +52,7 @@ def get_available_quests(user_id):
                         assign_default_quests(user_id)
                         # Fetch again after assigning
                         response = supabase.table("user_quests").select("*, quests(*)") \
-                            .eq("user_id", user_id).eq("status", "available") \
+                            .eq("user_id", user_id).eq("status", "active") \
                             .order("date_accepted", desc=True).limit(3).execute()
                         data = getattr(response, 'data', None)
                         print(f"Assigned {len(data) if data else 0} default quests to user {user_id}")
@@ -76,7 +76,7 @@ def get_available_quests(user_id):
 def assign_default_quests(user_id):
     try:
         # Get 3 default quests from quests table (created_by_llm = False)
-        response = supabase.table("quests").select("id").eq("created_by_llm", False).limit(3).execute()
+        response = supabase.table("quests").select("*").eq("created_by_llm", False).limit(3).execute()
         quests = getattr(response, 'data', None)
         
         # If no default quests exist, create some
@@ -133,7 +133,7 @@ def assign_default_quests(user_id):
                     supabase.table("user_quests").insert({
                         "user_id": user_id,
                         "quest_id": q["id"],
-                        "status": "available"
+                        "status": "active"
                     }).execute()
                     assigned_count += 1
                     print(f"Assigned quest {q['id']} to user {user_id}")
@@ -153,7 +153,7 @@ def accept_quest(quest_id, user_id):
     try:
         # Set quest status to in_progress
         supabase.table("user_quests").update({"status": "in_progress"}) \
-            .eq("user_id", user_id).eq("quest_id", quest_id).eq("status", "available").execute()
+            .eq("user_id", user_id).eq("quest_id", quest_id).eq("status", "active").execute()
         return {"quest_id": quest_id, "status": "in_progress"}
     except Exception as e:
         print(f"Error accepting quest {quest_id}: {e}")

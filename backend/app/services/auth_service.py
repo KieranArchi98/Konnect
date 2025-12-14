@@ -28,7 +28,7 @@ def serialize_user_data(user_data):
         'auth_provider': 'email',
         'email_verified': False,
         'elo': 0,
-        'level': 1,  # Always set to 1 as integer
+        'level': 1,
         'experience': 0,
         'experience_to_next_level': 100,
         'current_streak': 0,
@@ -45,10 +45,7 @@ def serialize_user_data(user_data):
     
     for key, value in user_data.items():
         try:
-            # Special handling for level field - always ensure it's 1
-            if key == 'level':
-                serialized[key] = 1  # Always set to 1, regardless of database value
-            elif isinstance(value, datetime):
+            if isinstance(value, datetime):
                 serialized[key] = value.isoformat()
             elif isinstance(value, date):
                 serialized[key] = value.isoformat()

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Box, 
   TextField, 
   Button, 
@@ -21,6 +21,14 @@ import {
   Chip,
   Grid
 } from '@mui/material';
+import {
+  Email,
+  Lightbulb,
+  FormatQuote,
+  FlashOn,
+  LocalFireDepartment,
+  Star
+} from '@mui/icons-material';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import ToneSlider from './ToneSlider.jsx';
@@ -65,9 +73,9 @@ const AGENT_CONFIGS = {
   }
 };
 
-function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
+function AgentControl({ onTaskAssigned, onTaskConfirmed, selectedAgent, onAgentSelect, agentConfigs, agentsRef }) {
   const [agents, setAgents] = useState([]);
-  const [selectedAgent, setSelectedAgent] = useState('');
+  const [selectedAgentState, setSelectedAgentState] = useState('');
   const [taskInput, setTaskInput] = useState('');
   const [status, setStatus] = useState('');
   const [taskId, setTaskId] = useState(null);
@@ -119,41 +127,66 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
         { id: 5, name: 'Quote Agent', user_selectable: true }
       ];
       setAgents(extendedAgents);
-      if (extendedAgents.length > 0) {
-        setSelectedAgent(extendedAgents[0].id);
-      }
     }
   }, [user]);
 
-  // Generate quote when Quote Agent is selected
+  // Use the selectedAgent prop if provided, otherwise use local state
+  const currentSelectedAgent = selectedAgent || selectedAgentState;
+
   useEffect(() => {
-    if (selectedAgent === 5) {
-      generateQuote();
+    if (selectedAgent) {
+      setSelectedAgentState(selectedAgent);
     }
   }, [selectedAgent]);
 
+  // Generate quote when Quote Agent is selected
+  useEffect(() => {
+    if (currentSelectedAgent === 5) {
+      generateQuote();
+    }
+  }, [currentSelectedAgent]);
+
   // Generate quote when quote type changes
   useEffect(() => {
-    if (selectedAgent === 5 && formFields.quote_type) {
+    if (currentSelectedAgent === 5 && formFields.quote_type) {
       generateQuote();
     }
   }, [formFields.quote_type]);
 
   // Clear ideas when switching away from Ideas Agent
   useEffect(() => {
-    if (selectedAgent !== 8) {
+    if (currentSelectedAgent !== 8) {
       setCurrentIdeas([]);
       setLastGeneratedInput('');
     }
-    if (selectedAgent !== 5) {
+    if (currentSelectedAgent !== 5) {
       setCurrentQuote('');
       setQuoteAuthor('');
       setPreviousQuote('');
       setPreviousQuoteAuthor('');
     }
-  }, [selectedAgent]);
+  }, [currentSelectedAgent]);
 
-  const selectedAgentConfig = AGENT_CONFIGS[selectedAgent];
+  const selectedAgentConfig = AGENT_CONFIGS[currentSelectedAgent];
+
+  const getAgentIcon = (iconName) => {
+    switch (iconName) {
+      case 'Email':
+        return <Email />;
+      case 'Lightbulb':
+        return <Lightbulb />;
+      case 'FormatQuote':
+        return <FormatQuote />;
+      case 'FlashOn':
+        return <FlashOn />;
+      case 'LocalFireDepartment':
+        return <LocalFireDepartment />;
+      case 'Star':
+        return <Star />;
+      default:
+        return <Email />;
+    }
+  };
 
   const getInputPlaceholder = (agentId) => {
     switch (agentId) {
@@ -224,15 +257,13 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
   const renderDynamicFields = () => {
     if (!selectedAgentConfig) return null;
 
-    switch (selectedAgentConfig.inputType) {
-      case 'email':
+    switch (currentSelectedAgent) {
+      case 1: // Email Agent
         return (
           <Grid container spacing={2} sx={{ mt: 2 }}>
             <Grid item xs={12}>
               <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontStyle: 'italic' }}>
-                Option 1: Use the command box above for AI to parse email details
-                <br />
-                Option 2: Use the specific fields below for more control
+                Compose and send professional emails with AI assistance
               </Typography>
             </Grid>
             <Grid item xs={12} md={6}>
@@ -243,6 +274,7 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
                 size="small"
                 value={formFields.email || ''}
                 onChange={(e) => setFormFields({...formFields, email: e.target.value})}
+                required
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -259,24 +291,36 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
               <TextField
                 fullWidth
                 label="Email Content"
-                placeholder="Enter email content here (optional - will use command input if blank)"
+                placeholder="Enter your email content here..."
                 multiline
                 rows={4}
                 size="small"
                 value={formFields.content || ''}
                 onChange={(e) => setFormFields({...formFields, content: e.target.value})}
+                required
               />
             </Grid>
           </Grid>
         );
 
-      case 'ideas':
+      case 8: // Ideas Agent
         return (
           <Grid container spacing={2} sx={{ mt: 2 }}>
             <Grid item xs={12}>
               <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontStyle: 'italic' }}>
                 Enter a command to generate innovative app and website ideas
               </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                placeholder="Enter a topic or area to generate innovative app/website ideas (e.g. 'productivity tools', 'health and wellness', 'education')"
+                variant="outlined"
+                size="small"
+                value={taskInput}
+                onChange={e => setTaskInput(e.target.value)}
+                disabled={loading}
+              />
             </Grid>
             <Grid item xs={12}>
               <Box sx={{ 
@@ -425,9 +469,38 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
           </Grid>
         );
 
-      case 'quote':
+      case 5: // Quote Agent
         return (
           <Grid container spacing={2} sx={{ mt: 2 }}>
+            <Grid item xs={12}>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontStyle: 'italic' }}>
+                Select a quote type to generate inspirational quotes
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Quote Type</InputLabel>
+                <Select
+                  value={formFields.quote_type || 'motivation'}
+                  onChange={(e) => {
+                    setFormFields({...formFields, quote_type: e.target.value});
+                  }}
+                  label="Quote Type"
+                  disabled={loading}
+                >
+                  <MenuItem value="motivation">Motivation & Success</MenuItem>
+                  <MenuItem value="leadership">Leadership & Vision</MenuItem>
+                  <MenuItem value="wisdom">Wisdom & Philosophy</MenuItem>
+                  <MenuItem value="creativity">Creativity & Innovation</MenuItem>
+                  <MenuItem value="perseverance">Perseverance & Resilience</MenuItem>
+                  <MenuItem value="success">Success & Achievement</MenuItem>
+                  <MenuItem value="courage">Courage & Bravery</MenuItem>
+                  <MenuItem value="love">Love & Relationships</MenuItem>
+                  <MenuItem value="happiness">Happiness & Joy</MenuItem>
+                  <MenuItem value="dreams">Dreams & Aspirations</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12}>
               <Box sx={{ 
                 textAlign: 'center', 
@@ -607,6 +680,162 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
           </Grid>
         );
 
+      case 'X': // Agent X - Data Analysis
+        return (
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            <Grid item xs={12}>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontStyle: 'italic' }}>
+                Analyze data, trends, and patterns with advanced AI algorithms
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Analysis Type</InputLabel>
+                <Select
+                  value={formFields.analysis_type || 'trends'}
+                  onChange={(e) => setFormFields({...formFields, analysis_type: e.target.value})}
+                  label="Analysis Type"
+                >
+                  <MenuItem value="trends">Trend Analysis</MenuItem>
+                  <MenuItem value="patterns">Pattern Recognition</MenuItem>
+                  <MenuItem value="correlations">Correlation Analysis</MenuItem>
+                  <MenuItem value="predictions">Predictive Modeling</MenuItem>
+                  <MenuItem value="anomalies">Anomaly Detection</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Data Source"
+                placeholder="Enter data source or upload file"
+                size="small"
+                value={formFields.data_source || ''}
+                onChange={(e) => setFormFields({...formFields, data_source: e.target.value})}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Analysis Query"
+                placeholder="Describe what you want to analyze or discover..."
+                multiline
+                rows={3}
+                size="small"
+                value={taskInput}
+                onChange={e => setTaskInput(e.target.value)}
+                disabled={loading}
+              />
+            </Grid>
+          </Grid>
+        );
+
+      case 'Y': // Agent Y - Performance Optimization
+        return (
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            <Grid item xs={12}>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontStyle: 'italic' }}>
+                Optimize performance, efficiency, and resource utilization
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Optimization Target</InputLabel>
+                <Select
+                  value={formFields.optimization_target || 'performance'}
+                  onChange={(e) => setFormFields({...formFields, optimization_target: e.target.value})}
+                  label="Optimization Target"
+                >
+                  <MenuItem value="performance">Performance</MenuItem>
+                  <MenuItem value="efficiency">Efficiency</MenuItem>
+                  <MenuItem value="cost">Cost Reduction</MenuItem>
+                  <MenuItem value="speed">Speed</MenuItem>
+                  <MenuItem value="quality">Quality</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Current Metrics"
+                placeholder="Enter current performance metrics"
+                size="small"
+                value={formFields.current_metrics || ''}
+                onChange={(e) => setFormFields({...formFields, current_metrics: e.target.value})}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Optimization Goals"
+                placeholder="Describe your optimization goals and constraints..."
+                multiline
+                rows={3}
+                size="small"
+                value={taskInput}
+                onChange={e => setTaskInput(e.target.value)}
+                disabled={loading}
+              />
+            </Grid>
+          </Grid>
+        );
+
+      case 'Z': // Agent Z - Content Enhancement
+        return (
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            <Grid item xs={12}>
+              <Typography variant="body2" sx={{ color: '#6B7280', mb: 2, fontStyle: 'italic' }}>
+                Enhance and improve content quality, engagement, and impact
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Content Type</InputLabel>
+                <Select
+                  value={formFields.content_type || 'text'}
+                  onChange={(e) => setFormFields({...formFields, content_type: e.target.value})}
+                  label="Content Type"
+                >
+                  <MenuItem value="text">Text Content</MenuItem>
+                  <MenuItem value="marketing">Marketing Copy</MenuItem>
+                  <MenuItem value="technical">Technical Documentation</MenuItem>
+                  <MenuItem value="creative">Creative Writing</MenuItem>
+                  <MenuItem value="academic">Academic Content</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Enhancement Focus</InputLabel>
+                <Select
+                  value={formFields.enhancement_focus || 'clarity'}
+                  onChange={(e) => setFormFields({...formFields, enhancement_focus: e.target.value})}
+                  label="Enhancement Focus"
+                >
+                  <MenuItem value="clarity">Clarity & Readability</MenuItem>
+                  <MenuItem value="engagement">Engagement</MenuItem>
+                  <MenuItem value="seo">SEO Optimization</MenuItem>
+                  <MenuItem value="tone">Tone & Style</MenuItem>
+                  <MenuItem value="structure">Structure & Flow</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Content to Enhance"
+                placeholder="Paste or describe the content you want to enhance..."
+                multiline
+                rows={4}
+                size="small"
+                value={taskInput}
+                onChange={e => setTaskInput(e.target.value)}
+                disabled={loading}
+              />
+            </Grid>
+          </Grid>
+        );
+
       default:
         return null;
     }
@@ -617,19 +846,22 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
     setError('');
     
     // Check if we have the required input based on agent type
-    if (selectedAgent === 1) { // Email Agent
-      // For email agent, we need either command input OR specific fields filled
-      const hasCommand = taskInput.trim();
-      const hasSpecificFields = formFields.email && formFields.content;
-      
-      if (!hasCommand && !hasSpecificFields) {
-        setError('Please enter a command OR fill in the email address and content fields.');
+    if (currentSelectedAgent === 1) { // Email Agent
+      // For email agent, we need specific fields filled
+      if (!formFields.email || !formFields.content) {
+        setError('Please fill in both email address and content fields.');
         setLoading(false);
         return;
       }
-    } else if (selectedAgent === 8) { // Ideas Agent
+    } else if (currentSelectedAgent === 8) { // Ideas Agent
       if (!taskInput.trim()) {
         setError('Please enter a command to generate ideas.');
+        setLoading(false);
+        return;
+      }
+    } else if (currentSelectedAgent === 'X' || currentSelectedAgent === 'Y' || currentSelectedAgent === 'Z') {
+      if (!taskInput.trim()) {
+        setError('Please enter your query or content.');
         setLoading(false);
         return;
       }
@@ -648,27 +880,18 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
       let finalSubject = formFields.subject;
       let finalContent = formFields.content;
 
-      if (selectedAgent === 1) { // Email Agent
-        // If specific fields are filled, use them; otherwise use command input
-        if (formFields.email && formFields.content) {
-          // Use specific fields - construct a proper input for the backend
-          finalInput = `Send email to ${formFields.email}${formFields.subject ? ` with subject "${formFields.subject}"` : ''}: ${formFields.content}`;
-          finalEmail = formFields.email;
-          finalSubject = formFields.subject;
-          finalContent = formFields.content;
-        } else {
-          // Use command input - extract email and content from it
-          finalInput = taskInput;
-          finalEmail = formFields.email || '';
-          finalSubject = formFields.subject || '';
-          finalContent = formFields.content || taskInput;
-        }
-      } else if (selectedAgent === 8) { // Ideas Agent
+      if (currentSelectedAgent === 1) { // Email Agent
+        // Use specific fields for email agent - keep subject separate from content
+        finalInput = `Send email to ${formFields.email}: ${formFields.content}`;
+        finalEmail = formFields.email;
+        finalSubject = formFields.subject || '';
+        finalContent = formFields.content;
+      } else if (currentSelectedAgent === 8) { // Ideas Agent
         finalInput = taskInput;
       }
 
       // For Ideas Agent, use the direct generate_ideas endpoint
-      if (selectedAgent === 8) {
+      if (currentSelectedAgent === 8) {
         const res = await axios.post(`${backendUrl}/agents/generate_ideas`, {
           command: finalInput
         }, { headers: getAuthHeaders() });
@@ -677,9 +900,9 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
           setCurrentIdeas(res.data);
           setStatus('assigned');
           setError('');
-          if (onTaskAssigned) {
-            onTaskAssigned({ ideas: res.data, agent_id: selectedAgent, input: finalInput });
-          }
+                  if (onTaskAssigned) {
+          onTaskAssigned({ ideas: res.data, agent_id: currentSelectedAgent, input: finalInput });
+        }
         } else {
           setError('Failed to generate ideas. Please try again.');
         }
@@ -688,8 +911,9 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
       }
 
       // For other agents, use the assign endpoint
+      console.log(`[AGENT CONTROL] Assigning task for agent ${currentSelectedAgent} with input: ${finalInput}`);
       const res = await axios.post(`${backendUrl}/agents/assign`, { 
-        agent_id: selectedAgent, 
+        agent_id: currentSelectedAgent, 
         input: finalInput,
         form_fields: {
           ...formFields,
@@ -699,6 +923,7 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
           command: finalInput // For Ideas Agent
         }
       }, { headers: getAuthHeaders() });
+      console.log(`[AGENT CONTROL] Assignment response:`, res.data);
       if (res.data.status === 'failed') {
         setError(res.data.error || 'Task assignment failed.');
         setStatus('failed');
@@ -708,7 +933,7 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
         setEmailPreview(res.data.preview);
         setPreviewEmail(res.data.email || finalEmail);
         setPreviewSubject(res.data.subject || finalSubject);
-        setPreviewAgentId(selectedAgent);
+        setPreviewAgentId(currentSelectedAgent);
         setPreviewUserInput(finalInput);
         setToneLevel(res.data.tone_level || 3);
         setShowPreview(true);
@@ -718,7 +943,7 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
         if (onTaskAssigned) {
           onTaskAssigned({
             task_id: res.data.task_id,
-            agent_id: selectedAgent,
+            agent_id: currentSelectedAgent,
             input: finalInput,
             output: res.data.preview,
             status: 'assigned',
@@ -734,14 +959,27 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
         setTaskId(res.data.task_id);
         setError('');
         if (onTaskAssigned) {
-          onTaskAssigned({ ...res.data, agent_id: selectedAgent, input: finalInput });
+          onTaskAssigned({ ...res.data, agent_id: currentSelectedAgent, input: finalInput });
         }
       } else {
         setTaskId(res.data.task_id);
         setStatus(res.data.status);
         setError('');
+        // Always call onTaskAssigned for any successful task assignment
         if (onTaskAssigned) {
-          onTaskAssigned({ ...res.data, agent_id: selectedAgent, input: finalInput });
+          onTaskAssigned({ 
+            task_id: res.data.task_id,
+            agent_id: currentSelectedAgent, 
+            input: finalInput,
+            output: res.data.output || res.data.message || 'Task assigned',
+            status: res.data.status || 'assigned',
+            email: res.data.email,
+            subject: res.data.subject,
+            tone_level: res.data.tone_level,
+            ideas: res.data.ideas,
+            results: res.data.results,
+            quest: res.data.quest
+          });
         }
       }
     } catch (err) {
@@ -759,7 +997,8 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
         preview: emailPreview,
         agent_id: previewAgentId,
         user_input: previewUserInput,
-        task_id: pendingTaskId
+        task_id: pendingTaskId,
+        subject: previewSubject
       }, { headers: getAuthHeaders() });
       if (res.data.status === 'failed') {
         setError(res.data.error || 'Failed to send email.');
@@ -833,126 +1072,253 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
       overflow: 'hidden'
     }}>
       <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-          <Typography variant="h4" sx={{ color: selectedAgentConfig?.color || '#83c441' }}>
-            {selectedAgentConfig?.icon}
+        {/* Agent Selection Portraits */}
+        <Box sx={{ mb: 4 }}>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontWeight: 600,
+              color: '#2A2A2A',
+              mb: 3,
+              textAlign: 'center'
+            }}
+          >
+            Select Your Agent
           </Typography>
-          <Box>
-            <Typography 
-              variant="h5" 
-              sx={{ 
-                fontWeight: 600, 
-                color: selectedAgentConfig?.color || '#83c441'
-              }}
-            >
-              {selectedAgentConfig?.name || 'Assign Task'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280' }}>
-              {selectedAgentConfig?.description}
-            </Typography>
+          
+          {/* Responsive Agent Grid */}
+          <Box 
+            ref={agentsRef}
+            sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: { xs: 1, sm: 1.5, md: 2, lg: 3 },
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+          >
+            {Object.values(agentConfigs || {}).map((agent) => (
+              <Box
+                key={agent.id}
+                onClick={() => onAgentSelect && onAgentSelect(agent.id)}
+                sx={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 1,
+                  p: { xs: 1, sm: 1.5, md: 2 },
+                  borderRadius: '12px',
+                  background: selectedAgent === agent.id ? `${agent.color}15` : 'transparent',
+                  border: `2px solid ${selectedAgent === agent.id ? agent.color : 'transparent'}`,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  width: { xs: '60px', sm: '70px', md: '80px', lg: '90px', xl: '100px' },
+                  height: { xs: '80px', sm: '90px', md: '100px', lg: '110px', xl: '120px' },
+                  '&:hover': {
+                    background: `${agent.color}10`,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 12px ${agent.color}20`
+                  },
+                  '&:active': {
+                    transform: 'translateY(-1px)'
+                  }
+                }}
+              >
+                {/* Agent Avatar */}
+                <Box
+                  sx={{
+                    width: { xs: 32, sm: 36, md: 40, lg: 44, xl: 48 },
+                    height: { xs: 32, sm: 36, md: 40, lg: 44, xl: 48 },
+                    borderRadius: '10px',
+                    background: agent.gradient,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s ease',
+                    boxShadow: `0 2px 8px ${agent.color}30`,
+                    flexShrink: 0,
+                    '& .MuiSvgIcon-root': {
+                      fontSize: { xs: '16px', sm: '18px', md: '20px', lg: '22px', xl: '24px' },
+                      color: 'white'
+                    }
+                  }}
+                >
+                  {getAgentIcon(agent.avatar)}
+                </Box>
+                
+                {/* Agent Name */}
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 600,
+                    color: selectedAgent === agent.id ? agent.color : '#2A2A2A',
+                    textAlign: 'center',
+                    fontSize: { xs: '0.65rem', sm: '0.7rem', md: '0.75rem', lg: '0.8rem', xl: '0.875rem' },
+                    lineHeight: 1.3,
+                    wordBreak: 'break-word',
+                    overflow: 'visible',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 0
+                  }}
+                >
+                  {agent.name}
+                </Typography>
+              </Box>
+            ))}
           </Box>
         </Box>
-        
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
-          <Select
-            value={selectedAgent}
-            onChange={e => setSelectedAgent(e.target.value)}
-            size="small"
-            sx={{ 
-              minWidth: { xs: '100%', md: 200 },
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }
-            }}
-            disabled={loading || agents.length === 0}
-          >
-            {agents.map(agent => (
-              <MenuItem key={agent.id} value={agent.id}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="h6" sx={{ color: AGENT_CONFIGS[agent.id]?.color }}>
-                    {AGENT_CONFIGS[agent.id]?.icon}
-                  </Typography>
-                  {agent.name}
+
+        {/* Agent Control Content */}
+        {currentSelectedAgent && (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ 
+                  color: selectedAgentConfig?.color || '#83c441',
+                  '& .MuiSvgIcon-root': {
+                    fontSize: '2rem'
+                  }
+                }}>
+                  {getAgentIcon(selectedAgentConfig?.icon)}
                 </Box>
-              </MenuItem>
-            ))}
-          </Select>
-          
-          {selectedAgent === 5 ? (
-            // Quote Agent: Show quote type dropdown instead of input
-            <FormControl fullWidth size="small">
-              <InputLabel>Quote Type</InputLabel>
-              <Select
-                value={formFields.quote_type || 'motivation'}
-                onChange={(e) => {
-                  setFormFields({...formFields, quote_type: e.target.value});
-                }}
-                label="Quote Type"
-                disabled={loading}
-              >
-                <MenuItem value="motivation">Motivation & Success</MenuItem>
-                <MenuItem value="leadership">Leadership & Vision</MenuItem>
-                <MenuItem value="wisdom">Wisdom & Philosophy</MenuItem>
-                <MenuItem value="creativity">Creativity & Innovation</MenuItem>
-                <MenuItem value="perseverance">Perseverance & Resilience</MenuItem>
-                <MenuItem value="success">Success & Achievement</MenuItem>
-                <MenuItem value="courage">Courage & Bravery</MenuItem>
-                <MenuItem value="love">Love & Relationships</MenuItem>
-                <MenuItem value="happiness">Happiness & Joy</MenuItem>
-                <MenuItem value="dreams">Dreams & Aspirations</MenuItem>
-              </Select>
-            </FormControl>
-          ) : (
-            // Other agents: Show regular input field
-            <TextField
-              fullWidth
-              placeholder={getInputPlaceholder(selectedAgent)}
-              variant="outlined"
-              size="small"
-              value={taskInput}
-              onChange={e => setTaskInput(e.target.value)}
-              disabled={loading}
-            />
-          )}
-          
-          {selectedAgent === 5 ? (
-            // Quote Agent: Show Generate button
-            <Button 
-              variant="contained" 
-              onClick={handleGenerateNewQuote} 
-              disabled={isGeneratingQuote}
-              sx={{ 
-                minWidth: { xs: '100%', md: 'auto' },
-                background: selectedAgentConfig?.color || '#06B6D4',
-                '&:hover': {
-                  background: selectedAgentConfig?.color || '#06B6D4',
-                  opacity: 0.9
-                }
-              }}
-            >
-              {isGeneratingQuote ? 'Generating...' : 'Refresh'}
-            </Button>
-          ) : (
-            // Other agents: Show Assign button
-            <Button 
-              variant="contained" 
-              onClick={handleAssign} 
-              disabled={!taskInput || loading}
-              sx={{ 
-                minWidth: { xs: '100%', md: 'auto' },
-                background: selectedAgentConfig?.color || '#83c441',
-                '&:hover': {
-                  background: selectedAgentConfig?.color || '#83c441',
-                  opacity: 0.9
-                }
-              }}
-            >
-              {loading ? (selectedAgent === 8 ? 'Thinking...' : 'Assigning...') : (selectedAgent === 8 ? 'Think' : 'Assign')}
-            </Button>
-          )}
-        </Box>
+                <Box>
+                  <Typography 
+                    variant="h5" 
+                    sx={{ 
+                      fontWeight: 600, 
+                      color: selectedAgentConfig?.color || '#83c441'
+                    }}
+                  >
+                    {selectedAgentConfig?.name || 'Assign Task'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                    {selectedAgentConfig?.description}
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {/* Action Button */}
+              <Box>
+                {currentSelectedAgent === 5 ? (
+                  // Quote Agent: Show Generate button
+                  <Button 
+                    variant="contained" 
+                    onClick={handleGenerateNewQuote} 
+                    disabled={isGeneratingQuote}
+                    sx={{ 
+                      background: selectedAgentConfig?.color || '#06B6D4',
+                      '&:hover': {
+                        background: selectedAgentConfig?.color || '#06B6D4',
+                        opacity: 0.9
+                      }
+                    }}
+                  >
+                    {isGeneratingQuote ? 'Generating...' : 'Generate Quote'}
+                  </Button>
+                ) : currentSelectedAgent === 1 ? (
+                  // Email Agent: Show Send button
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAssign} 
+                    disabled={!formFields.email || !formFields.content || loading}
+                    sx={{ 
+                      background: selectedAgentConfig?.color || '#83c441',
+                      '&:hover': {
+                        background: selectedAgentConfig?.color || '#83c441',
+                        opacity: 0.9
+                      }
+                    }}
+                  >
+                    {loading ? 'Sending...' : 'Send'}
+                  </Button>
+                ) : currentSelectedAgent === 8 ? (
+                  // Ideas Agent: Show Generate button
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAssign} 
+                    disabled={!taskInput || loading}
+                    sx={{ 
+                      background: selectedAgentConfig?.color || '#8B5CF6',
+                      '&:hover': {
+                        background: selectedAgentConfig?.color || '#8B5CF6',
+                        opacity: 0.9
+                      }
+                    }}
+                  >
+                    {loading ? 'Thinking...' : 'Generate Ideas'}
+                  </Button>
+                ) : currentSelectedAgent === 'X' ? (
+                  // Agent X: Show Analyze button
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAssign} 
+                    disabled={!taskInput || loading}
+                    sx={{ 
+                      background: selectedAgentConfig?.color || '#F59E0B',
+                      '&:hover': {
+                        background: selectedAgentConfig?.color || '#F59E0B',
+                        opacity: 0.9
+                      }
+                    }}
+                  >
+                    {loading ? 'Analyzing...' : 'Analyze'}
+                  </Button>
+                ) : currentSelectedAgent === 'Y' ? (
+                  // Agent Y: Show Optimize button
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAssign} 
+                    disabled={!taskInput || loading}
+                    sx={{ 
+                      background: selectedAgentConfig?.color || '#EF4444',
+                      '&:hover': {
+                        background: selectedAgentConfig?.color || '#EF4444',
+                        opacity: 0.9
+                      }
+                    }}
+                  >
+                    {loading ? 'Optimizing...' : 'Optimize'}
+                  </Button>
+                ) : currentSelectedAgent === 'Z' ? (
+                  // Agent Z: Show Enhance button
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAssign} 
+                    disabled={!taskInput || loading}
+                    sx={{ 
+                      background: selectedAgentConfig?.color || '#10B981',
+                      '&:hover': {
+                        background: selectedAgentConfig?.color || '#10B981',
+                        opacity: 0.9
+                      }
+                    }}
+                  >
+                    {loading ? 'Enhancing...' : 'Enhance'}
+                  </Button>
+                ) : (
+                  // Default: Show Assign button
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAssign} 
+                    disabled={!taskInput || loading}
+                    sx={{ 
+                      background: selectedAgentConfig?.color || '#83c441',
+                      '&:hover': {
+                        background: selectedAgentConfig?.color || '#83c441',
+                        opacity: 0.9
+                      }
+                    }}
+                  >
+                    {loading ? 'Processing...' : 'Process'}
+                  </Button>
+                )}
+              </Box>
+            </Box>
+        
+        
         
         {/* Dynamic Fields */}
         {renderDynamicFields()}
@@ -970,6 +1336,8 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
           >
             {error}
           </Typography>
+        )}
+          </Box>
         )}
         
         <Dialog 
@@ -1090,6 +1458,10 @@ function AgentControl({ onTaskAssigned, onTaskConfirmed }) {
 AgentControl.propTypes = {
   onTaskAssigned: PropTypes.func,
   onTaskConfirmed: PropTypes.func,
+  selectedAgent: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  onAgentSelect: PropTypes.func,
+  agentConfigs: PropTypes.object,
+  agentsRef: PropTypes.object,
 };
 
 export default AgentControl;

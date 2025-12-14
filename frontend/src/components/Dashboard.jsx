@@ -404,7 +404,7 @@ function Dashboard() {
                             hyphens: 'auto'
                           }}
                         >
-                          {isSmallOrMedium ? 'Quests' : 'Active Quests'}
+                          {isSmallOrMedium ? 'Quests' : 'Quests'}
                         </Typography>
                       </Box>
                     </Grid>
@@ -456,7 +456,7 @@ function Dashboard() {
                             hyphens: 'auto'
                           }}
                         >
-                          {isSmallOrMedium ? 'Agents' : 'AI Agents'}
+                          {isSmallOrMedium ? 'Agents' : 'Agents'}
                         </Typography>
                       </Box>
                     </Grid>
@@ -508,7 +508,7 @@ function Dashboard() {
                             hyphens: 'auto'
                           }}
                         >
-                          {isSmallOrMedium ? 'W/L' : 'Completion Rate'}
+                          {isSmallOrMedium ? 'W/L' : 'W/L'}
                         </Typography>
                       </Box>
                     </Grid>
@@ -560,7 +560,7 @@ function Dashboard() {
                             hyphens: 'auto'
                           }}
                         >
-                          {isMobile ? 'Files' : 'Files Stored'}
+                          {isMobile ? 'Files' : 'Files'}
                         </Typography>
                       </Box>
                     </Grid>

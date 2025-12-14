@@ -24,6 +24,7 @@ class SendEmailRequest(BaseModel):
     user_input: str
     task_id: int | None = None
     tone_level: int = 3
+    subject: str | None = None
 
 class RegenerateEmailRequest(BaseModel):
     user_input: str
@@ -63,7 +64,7 @@ async def send_email(request: SendEmailRequest, request_obj: Request):
         print('[API] No user ID found for send_email')
         return {"status": "failed", "error": "Authentication required"}
     
-    result = send_email_agent(request.email, request.preview, request.agent_id, request.user_input, request.task_id, user_id)
+    result = send_email_agent(request.email, request.preview, request.agent_id, request.user_input, request.task_id, user_id, request.subject)
     return result
 
 @router.post("/regenerate_email")

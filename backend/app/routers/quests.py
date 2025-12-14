@@ -95,6 +95,8 @@ def all_quests(current_user: Dict[str, Any] = Depends(get_current_user_dependenc
         in_progress = get_in_progress_quests(user_id)
         completed = get_completed_quests(user_id)
         
+        print(f"User {user_id} - Available: {len(available)}, In Progress: {len(in_progress)}, Completed: {len(completed)}")
+        
         return {
             "available": available,
             "in_progress": in_progress,

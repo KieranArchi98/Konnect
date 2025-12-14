@@ -36,35 +36,8 @@ CREATE TABLE public.users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC')
 );
 
--- Insert a test user for development/testing (Enhanced)
-INSERT INTO public.users (
-    id, 
-    email, 
-    password_hash, 
-    display_name,
-    email_verified,
-    last_login,
-    is_active,
-    preferences,
-    elo, 
-    level,
-    experience,
-    experience_to_next_level
-)
-VALUES (
-    '00000000-0000-0000-0000-000000000001', 
-    'test@example.com', 
-    'testpasswordhash', 
-    'Test User',
-    TRUE,
-    NOW(),
-    TRUE,
-    '{"theme": "light", "notifications": true}',
-    0, 
-    1,
-    0,
-    100
-);
+-- Note: Test users should be created through the application's registration process
+-- This ensures proper password hashing and data validation
 
 -- Create User Sessions Table for Token Management
 CREATE TABLE public.user_sessions (
