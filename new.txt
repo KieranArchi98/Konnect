@@ -1,7 +1,0 @@
-# Start frontend and backend in separate PowerShell windows
-$frontendCommand = 'cd frontend; npm run dev'
-$backendCommand = 'cd backend; .\venv\Scripts\Activate.ps1; python -m uvicorn app.main:app --reload'
-Start-Process powershell -ArgumentList '-NoExit', '-Command', $frontendCommand
-Start-Process powershell -ArgumentList '-NoExit', '-Command', $backendCommand
-Write-Host 'Frontend running on http://localhost:5173'
-Write-Host 'Backend running on http://localhost:8000'
