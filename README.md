@@ -8,6 +8,8 @@ This repository is intentionally designed as an **internal tool**, not a consume
 
 ---
 
+![Konnect Landing Page](assets/images/landingpage.PNG)
+
 ## ✨ Core Philosophy
 
 Konnect was created to solve a simple problem:
@@ -36,6 +38,8 @@ All wrapped in a clean internal admin dashboard.
 ### 🏠 AI Knowledge Home (RAG‑Powered)
 
 The home page acts as a **personal AI knowledge base**.
+
+![AI Knowledge Home](assets/images/dashboard.PNG)
 
 **Capabilities:**
 - Upload daily notes, journals, and personal documents
@@ -66,6 +70,8 @@ All data feeds into profile‑level statistics for long‑term visibility.
 
 The **Agent Page** allows users to interact with predefined AI agents powered by **LangChain**.
 
+![AI Agent Hub](assets/images/agents.PNG)
+
 Agents can connect to external APIs and perform real actions.
 
 **Examples include:**
@@ -81,6 +87,8 @@ This page acts as an **agent orchestration layer**, not just a chat interface.
 ### 🧩 Quest System (Gamified Self‑Improvement)
 
 The Quest Page introduces a **game‑style progression system**.
+
+![Quest System](assets/images/quests.PNG)
 
 **How it works:**
 - Accept AI‑generated self‑improvement quests
@@ -112,6 +120,8 @@ This acts as the primary ingestion layer for the knowledge system.
 ### 👤 Profile & Analytics
 
 The Profile Page provides a **high‑resolution view of progress**:
+
+![Profile & Analytics](assets/images/profile.PNG)
 - Productivity statistics
 - Quest history
 - Habit consistency
