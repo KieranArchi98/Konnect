@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.auth_service import auth_service
 from typing import Optional, Dict, Any
 import os
-import jwt
+from jose import jwt
 from app.utils.config import settings, supabase
 from app.services.auth_service import serialize_user_data
 
@@ -64,6 +64,11 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
 
 async def auth_middleware(request: Request, call_next):
     """Middleware to handle authentication for protected routes"""
+    # Allow OPTIONS requests (CORS preflight) to pass through
+    if request.method == "OPTIONS":
+        response = await call_next(request)
+        return response
+    
     # Public routes that don't require authentication
     public_routes = [
         "/",

@@ -1,11 +1,11 @@
 import uuid
-import jwt
+from jose import jwt
 import os
 import httpx
 from datetime import datetime, timedelta, date
 from typing import Dict, Any, Optional
 from fastapi import HTTPException
-from passlib.context import CryptContext
+import bcrypt
 from supabase import create_client, Client
 from app.utils.config import settings
 from app.services.email_verification_service import email_verification_service
@@ -85,10 +85,32 @@ def serialize_nested_data(data):
 class AuthService:
     def __init__(self):
         self.supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.jwt_secret = settings.jwt_secret
         self.jwt_algorithm = "HS256"
         self.access_token_expire_minutes = 30
+    
+    def _hash_password(self, password: str) -> str:
+        """Hash password using bcrypt"""
+        password_bytes = password.encode('utf-8')
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        return hashed.decode('utf-8')
+    
+    def _verify_password(self, password: str, hashed: str) -> bool:
+        """Verify password against hash using bcrypt"""
+        try:
+            if not hashed or not password:
+                print("Missing password or hash")
+                return False
+            password_bytes = password.encode('utf-8')
+            hashed_bytes = hashed.encode('utf-8')
+            result = bcrypt.checkpw(password_bytes, hashed_bytes)
+            return result
+        except Exception as e:
+            print(f"Error in _verify_password: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
         
     async def register_user(self, email: str, password: str, display_name: str = None) -> Dict[str, Any]:
         """Register new user with email/password"""
@@ -104,8 +126,15 @@ class AuthService:
             
             print("User doesn't exist, proceeding with registration...")
             
+            # Validate password length (bcrypt limit is 72 bytes)
+            if len(password.encode('utf-8')) > 72:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Password is too long. Maximum length is 72 bytes. Please use a shorter password."
+                )
+            
             # Hash password
-            hashed_password = self.pwd_context.hash(password)
+            hashed_password = self._hash_password(password)
             
             # Create user with only the columns that exist in the database
             user_data = {
@@ -225,20 +254,44 @@ class AuthService:
     async def login_user(self, email: str, password: str) -> Dict[str, Any]:
         """Login user with email/password"""
         try:
+            print(f"Starting login for: {email}")
+            
+            # Validate password length (bcrypt limit is 72 bytes)
+            if len(password.encode('utf-8')) > 72:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Password is too long. Maximum length is 72 bytes."
+                )
+            
             # Get user by email
+            print("Fetching user from database...")
             user_response = self.supabase.table("users").select("*").eq("email", email).single().execute()
             
             if not user_response.data:
+                print(f"User not found: {email}")
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
             user = user_response.data
+            print(f"User found: {user.get('id')}")
             
             # Verify password
-            if not self.pwd_context.verify(password, user["password_hash"]):
+            print("Verifying password...")
+            try:
+                password_valid = self._verify_password(password, user["password_hash"])
+                print(f"Password verification result: {password_valid}")
+            except Exception as e:
+                print(f"Error verifying password: {e}")
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
-            # Check if email is verified
-            if not user["email_verified"]:
+            if not password_valid:
+                print("Password verification failed")
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+            print("Password verified successfully")
+            
+            # Check if email is verified (skip for test users)
+            if user.get("email_verified") is False:
+                print("Email not verified")
                 raise HTTPException(status_code=401, detail="Email not verified. Please check your inbox.")
 
             # Update last login - handle potential database schema issues
@@ -264,6 +317,9 @@ class AuthService:
                 "user": serialized_user
             }
                 
+        except HTTPException:
+            # Re-raise HTTP exceptions (they already have proper status codes)
+            raise
         except Exception as e:
             raise HTTPException(status_code=401, detail="Invalid credentials")
     

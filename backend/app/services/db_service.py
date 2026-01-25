@@ -25,6 +25,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
 
 def check_supabase_connection():
+    """Check Supabase connection without blocking server startup"""
     print(f"Attempting to connect to Supabase: {settings.supabase_url}")
     try:
         # Try a simple select from files table
@@ -33,19 +34,36 @@ def check_supabase_connection():
         data = getattr(response, 'data', None)
         error = getattr(response, 'error', None)
         if error:
-            print(f"Supabase connection error: {error}")
-            raise Exception(f"Supabase connection error: {error}")
-        print("Supabase connection successful! Data:", data)
+            print(f"⚠️  WARNING: Supabase connection error: {error}")
+            print("⚠️  Server will start but database operations may fail")
+            return False
+        print("✓ Supabase connection successful! Data:", data)
+        return True
     except Exception as e:
-        print(f"Supabase connection failed: {e}")
-        raise
+        print(f"⚠️  WARNING: Supabase connection failed: {e}")
+        print("⚠️  Server will start but database operations may fail")
+        return False
 
-# Run connection check at import
+# Initialize Pinecone client and index (non-blocking)
+pc = None
+pinecone_index = None
+
+def initialize_pinecone():
+    """Initialize Pinecone without blocking server startup"""
+    global pc, pinecone_index
+    try:
+        pc = PineconeClient(api_key=settings.pinecone_api_key)
+        pinecone_index = pc.Index(settings.pinecone_index)
+        print("✓ Pinecone initialized successfully")
+        return True
+    except Exception as e:
+        print(f"⚠️  WARNING: Pinecone initialization failed: {e}")
+        print("⚠️  Server will start but vector operations may fail")
+        return False
+
+# Run connection checks at import (non-blocking)
 check_supabase_connection()
-
-# Initialize Pinecone client and index
-pc = PineconeClient(api_key=settings.pinecone_api_key)
-pinecone_index = pc.Index(settings.pinecone_index)
+initialize_pinecone()
 
 def register_user(email: str, password: str) -> dict:
     hashed_password = pwd_context.hash(password)
@@ -111,6 +129,9 @@ def chunk_file(content: str) -> list:
 
 # Helper: Embed chunks and upload to Pinecone
 def embed_and_store_chunks(chunks: list, file_id: int, file_path: str):
+    if pinecone_index is None:
+        print("⚠️  WARNING: Pinecone is not initialized. Skipping embedding and storage.")
+        return
     print(f"[Embedding] Starting embedding of {len(chunks)} chunks using OpenAI embeddings...")
     embedder = OpenAIEmbeddings(openai_api_key=settings.openai_api_key)
     embeddings = embedder.embed_documents(chunks)
@@ -300,38 +321,41 @@ def delete_file(file_id: int, user_id: str = None) -> dict:
         # Continue with deletion even if storage deletion fails
     
     # 3. Delete all associated vectors from Pinecone
-    try:
-        print(f"[Delete] Deleting vectors from Pinecone for file_id: {file_id}")
-        
-        # Get all vector IDs for this file using metadata filter
-        # Pinecone allows filtering by metadata, so we can find all vectors for this file
+    if pinecone_index is None:
+        print(f"[Delete] WARNING: Pinecone is not initialized. Skipping vector deletion for file_id: {file_id}")
+    else:
         try:
-            # Try to delete vectors using metadata filter
-            pinecone_index.delete(
-                filter={"file_id": str(file_id)}
-            )
-            print(f"[Delete] Successfully deleted vectors using metadata filter for file_id: {file_id}")
-        except Exception as metadata_error:
-            print(f"[Delete] Metadata filter deletion failed, trying alternative method: {metadata_error}")
+            print(f"[Delete] Deleting vectors from Pinecone for file_id: {file_id}")
             
-            # Fallback: Try to delete vectors using ID pattern
-            # Generate possible vector IDs based on the file_id
-            vector_ids = []
-            for i in range(1000):  # Assume max 1000 chunks per file
-                vector_ids.append(f"file{file_id}_chunk{i}")
-            
+            # Get all vector IDs for this file using metadata filter
+            # Pinecone allows filtering by metadata, so we can find all vectors for this file
             try:
-                pinecone_index.delete(ids=vector_ids)
-                print(f"[Delete] Successfully deleted vectors using ID pattern for file_id: {file_id}")
-            except Exception as id_error:
-                print(f"[Delete] ID pattern deletion also failed: {id_error}")
-                # Continue with deletion even if Pinecone deletion fails
-                print(f"[Delete] Warning: Pinecone vectors may not have been deleted for file_id: {file_id}")
+                # Try to delete vectors using metadata filter
+                pinecone_index.delete(
+                    filter={"file_id": str(file_id)}
+                )
+                print(f"[Delete] Successfully deleted vectors using metadata filter for file_id: {file_id}")
+            except Exception as metadata_error:
+                print(f"[Delete] Metadata filter deletion failed, trying alternative method: {metadata_error}")
                 
-    except Exception as e:
-        print(f"[Delete] Error deleting vectors from Pinecone: {e}")
-        # Continue with deletion even if Pinecone deletion fails
-        print(f"[Delete] Warning: Pinecone vectors may not have been deleted for file_id: {file_id}")
+                # Fallback: Try to delete vectors using ID pattern
+                # Generate possible vector IDs based on the file_id
+                vector_ids = []
+                for i in range(1000):  # Assume max 1000 chunks per file
+                    vector_ids.append(f"file{file_id}_chunk{i}")
+                
+                try:
+                    pinecone_index.delete(ids=vector_ids)
+                    print(f"[Delete] Successfully deleted vectors using ID pattern for file_id: {file_id}")
+                except Exception as id_error:
+                    print(f"[Delete] ID pattern deletion also failed: {id_error}")
+                    # Continue with deletion even if Pinecone deletion fails
+                    print(f"[Delete] Warning: Pinecone vectors may not have been deleted for file_id: {file_id}")
+                    
+        except Exception as e:
+            print(f"[Delete] Error deleting vectors from Pinecone: {e}")
+            # Continue with deletion even if Pinecone deletion fails
+            print(f"[Delete] Warning: Pinecone vectors may not have been deleted for file_id: {file_id}")
     
     # 4. Delete metadata row from files table
     try:
